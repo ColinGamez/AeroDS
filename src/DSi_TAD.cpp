@@ -30,10 +30,12 @@ namespace melonDS::DSi_TAD
 using DSi_TMD::TitleMetadata;
 
 // AES-CBC keys used to decrypt the title key stored in DSiWare tickets.
-// These are the DSi "common keys" (AES keyslot 3Dh), as derived for retail
-// and debug consoles. They are part of the publicly documented DSi
-// cryptography (see GBATEK: "DSi SD/MMC DSiware ... Tickets and Title
+// The first twelve are the DSi "common keys" (AES keyslot 3Dh), as derived
+// for retail and debug consoles. They are part of the publicly documented
+// DSi cryptography (see GBATEK: "DSi SD/MMC DSiware ... Tickets and Title
 // metadata"); the retail keys are the same on every console.
+// The last entry is Nintendo's internal dev-master common key used for
+// DSiWare master tads (see comment at the entry).
 // Each entry is tried in turn until the content SHA1 from the TMD matches.
 static const u8 CommonKeys[][16] =
 {
@@ -61,6 +63,11 @@ static const u8 CommonKeys[][16] =
     {0x75,0x05,0x52,0xBF,0xAA,0x1C,0x04,0x07,0x55,0xC8,0xD5,0x9A,0x55,0xF9,0xAD,0x1F},
     // key_3Dh.5.debug
     {0xAA,0xDA,0x4C,0xA8,0xF6,0xE5,0xA9,0x77,0xE0,0xA0,0xF9,0xE4,0x76,0xCF,0x0D,0x63},
+    // Nintendo internal DSiWare dev-master common key. Not part of the
+    // publicly documented GBATEK set; recovered from the internal
+    // MasterEditor tad tools (split_tad.cpp) and verified against leaked
+    // master tads (SHA1 gate). Already public via the gigaleak repo.
+    {0xA1,0x60,0x4A,0x6A,0x71,0x23,0xB5,0x29,0xAE,0x8B,0xEC,0x32,0xC8,0x16,0xFC,0xAA},
 };
 static constexpr size_t NumCommonKeys = sizeof(CommonKeys) / sizeof(CommonKeys[0]);
 
