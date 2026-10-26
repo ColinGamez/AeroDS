@@ -28,6 +28,7 @@ add_library(core STATIC
     DSi_NWifi.cpp
     DSi_SD.cpp
     DSi_SPI_TSC.cpp
+    DSi_TAD.cpp
     FATIO.cpp
     FATStorage.cpp
     FIFO.h

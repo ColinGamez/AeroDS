@@ -25,6 +25,7 @@
 #include "Config.h"
 #include "main.h"
 #include "DSi_NAND.h"
+#include "DSi_TAD.h"
 
 #include "TitleManagerDialog.h"
 #include "ui_TitleManagerDialog.h"
@@ -182,7 +183,9 @@ void TitleManagerDialog::done(int r)
 
 void TitleManagerDialog::on_btnImportTitle_clicked()
 {
-    TitleImportDialog* importdlg = new TitleImportDialog(this, importAppPath, &importTmdData, importReadOnly, nandmount);
+    importTadApp.clear();
+
+    TitleImportDialog* importdlg = new TitleImportDialog(this, importAppPath, &importTmdData, importReadOnly, &importTadApp, nandmount);
     importdlg->open();
     connect(importdlg, &TitleImportDialog::finished, this, &TitleManagerDialog::onImportTitleFinished);
 
@@ -202,7 +205,11 @@ void TitleManagerDialog::onImportTitleFinished(int res)
     // remove anything that might hinder the install
     nandmount.DeleteTitle(titleid[0], titleid[1]);
 
-    bool importres = nandmount.ImportTitle(importAppPath.toStdString().c_str(), importTmdData, importReadOnly);
+    bool importres;
+    if (!importTadApp.empty())
+        importres = nandmount.ImportTitle(importTadApp.data(), importTadApp.size(), importTmdData, importReadOnly);
+    else
+        importres = nandmount.ImportTitle(importAppPath.toStdString().c_str(), importTmdData, importReadOnly);
     if (!importres)
     {
         // remove a potential half-completed install
@@ -388,8 +395,8 @@ void TitleManagerDialog::onExportTitleData()
 }
 
 
-TitleImportDialog::TitleImportDialog(QWidget* parent, QString& apppath, const DSi_TMD::TitleMetadata* tmd, bool& readonly, DSi_NAND::NANDMount& nandmount)
-: QDialog(parent), ui(new Ui::TitleImportDialog), appPath(apppath), tmdData(tmd), readOnly(readonly), nandmount(nandmount)
+TitleImportDialog::TitleImportDialog(QWidget* parent, QString& apppath, DSi_TMD::TitleMetadata* tmd, bool& readonly, std::vector<u8>* tadapp, DSi_NAND::NANDMount& nandmount)
+: QDialog(parent), ui(new Ui::TitleImportDialog), appPath(apppath), tmdData(tmd), tadApp(tadapp), readOnly(readonly), nandmount(nandmount)
 {
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
@@ -415,52 +422,80 @@ void TitleImportDialog::accept()
     bool tmdfromfile = (grpTmdSource->checkedId() == 0);
 
     QString path = ui->txtAppFile->text();
-    Platform::FileHandle* f = Platform::OpenFile(path.toStdString(), FileMode::Read);
-    if (!f)
+    if (path.endsWith(".tad", Qt::CaseInsensitive))
     {
-        QMessageBox::critical(this,
-                              "Import title - melonDS",
-                              "Could not open executable file.\nCheck that the path is correct and that the file is accessible.");
-        return;
+        // .tad container: parse, decrypt and verify in one go
+        std::string err;
+        tadApp->clear();
+        if (!DSi_TAD::ImportTAD(path.toStdString(), *tadApp, *tmdData, err))
+        {
+            QMessageBox::critical(this,
+                                  "Import title - melonDS",
+                                  QString::fromStdString(err));
+            return;
+        }
+
+        if (tmdData->GetCategory() != 0x00030004)
+        {
+            tadApp->clear();
+            QMessageBox::critical(this,
+                                  "Import title - melonDS",
+                                  "The selected .tad is not a DSiWare title.");
+            return;
+        }
+
+        titleid[1] = tmdData->GetCategory();
+        titleid[0] = tmdData->GetID();
     }
-
-    Platform::FileSeek(f, 0x230, FileSeekOrigin::Start);
-    Platform::FileRead(titleid, 8, 1, f);
-    Platform::CloseFile(f);
-
-    if (titleid[1] != 0x00030004)
+    else
     {
-        QMessageBox::critical(this,
-                              "Import title - melonDS",
-                              "Executable file is not a DSiWare title.");
-        return;
-    }
-
-    if (tmdfromfile)
-    {
-        path = ui->txtTmdFile->text();
         Platform::FileHandle* f = Platform::OpenFile(path.toStdString(), FileMode::Read);
         if (!f)
         {
             QMessageBox::critical(this,
                                   "Import title - melonDS",
-                                  "Could not open metadata file.\nCheck that the path is correct and that the file is accessible.");
+                                  "Could not open executable file.\nCheck that the path is correct and that the file is accessible.");
             return;
         }
 
-        Platform::FileRead((void *) tmdData, sizeof(DSi_TMD::TitleMetadata), 1, f);
+        Platform::FileSeek(f, 0x230, FileSeekOrigin::Start);
+        Platform::FileRead(titleid, 8, 1, f);
         Platform::CloseFile(f);
 
-        u32 tmdtitleid[2];
-        tmdtitleid[0] = tmdData->GetCategory();
-        tmdtitleid[1] = tmdData->GetID();
-
-        if (tmdtitleid[1] != titleid[0] || tmdtitleid[0] != titleid[1])
+        if (titleid[1] != 0x00030004)
         {
             QMessageBox::critical(this,
                                   "Import title - melonDS",
-                                  "Title ID in metadata file does not match executable file.");
+                                  "Executable file is not a DSiWare title.");
             return;
+        }
+
+        if (tmdfromfile)
+        {
+            path = ui->txtTmdFile->text();
+            Platform::FileHandle* f = Platform::OpenFile(path.toStdString(), FileMode::Read);
+            if (!f)
+            {
+                QMessageBox::critical(this,
+                                      "Import title - melonDS",
+                                      "Could not open metadata file.\nCheck that the path is correct and that the file is accessible.");
+                return;
+            }
+
+            Platform::FileRead((void *) tmdData, sizeof(DSi_TMD::TitleMetadata), 1, f);
+            Platform::CloseFile(f);
+
+            u32 tmdtitleid[2];
+            tmdtitleid[0] = tmdData->GetCategory();
+            tmdtitleid[1] = tmdData->GetID();
+
+            if (tmdtitleid[1] != titleid[0] || tmdtitleid[0] != titleid[1])
+            {
+                QMessageBox::critical(this,
+                                      "Import title - melonDS",
+                                      "Title ID in metadata file does not match executable file.");
+                return;
+            }
         }
     }
 
@@ -474,7 +509,7 @@ void TitleImportDialog::accept()
             return;
     }
 
-    if (!tmdfromfile)
+    if (!tmdfromfile && tadApp->empty())
     {
         network = new QNetworkAccessManager(this);
 
@@ -547,7 +582,7 @@ void TitleImportDialog::on_btnAppBrowse_clicked()
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select title executable...",
                                                 emuDirectory,
-                                                "DSiWare executables (*.app *.nds *.dsi *.srl);;Any file (*.*)");
+                                                "DSiWare executables (*.app *.nds *.dsi *.srl *.tad);;Any file (*.*)");
 
     if (file.isEmpty()) return;
 

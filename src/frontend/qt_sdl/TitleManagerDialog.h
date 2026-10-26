@@ -104,6 +104,7 @@ private:
     QString importAppPath;
     melonDS::DSi_TMD::TitleMetadata importTmdData;
     bool importReadOnly;
+    std::vector<melonDS::u8> importTadApp;
 
     QAction* actImportTitleData[3];
     QAction* actExportTitleData[3];
@@ -116,7 +117,7 @@ class TitleImportDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit TitleImportDialog(QWidget* parent, QString& apppath, const melonDS::DSi_TMD::TitleMetadata* tmd, bool& readonly, melonDS::DSi_NAND::NANDMount& nand);
+    explicit TitleImportDialog(QWidget* parent, QString& apppath, melonDS::DSi_TMD::TitleMetadata* tmd, bool& readonly, std::vector<melonDS::u8>* tadapp, melonDS::DSi_NAND::NANDMount& nand);
     ~TitleImportDialog();
 
 private slots:
@@ -137,7 +138,8 @@ private:
     QNetworkReply* netreply;
 
     QString& appPath;
-    const melonDS::DSi_TMD::TitleMetadata* tmdData;
+    melonDS::DSi_TMD::TitleMetadata* tmdData;
+    std::vector<melonDS::u8>* tadApp;
     bool& readOnly;
 
     melonDS::u32 titleid[2];
