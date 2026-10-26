@@ -1,5 +1,10 @@
-<p align="center"><img src="https://raw.githubusercontent.com/melonDS-emu/melonDS/master/res/icon/melon_128x128.png"></p>
-<h2 align="center"><b>melonDS</b></h2>
+<h1 align="center"><b>AeroDS</b></h1>
+<p align="center">A Nintendo DS(i) emulator fork focused on deep DSi hardware emulation — system boot, cameras, DSiWare support, and system-menu behavior — where stock emulators still fall short.</p>
+<p align="center">Forked from <a href="https://github.com/melonDS-emu/melonDS">melonDS</a> · GPL-3.0</p>
+
+---
+
+<h2 align="center"><b>Upstream: melonDS</b></h2>
 <p align="center">
 <a href="http://melonds.kuribo64.net/" alt="melonDS website"><img src="https://img.shields.io/badge/website-melonds.kuribo64.net-%2331352e.svg"></a>
 <a href="http://melonds.kuribo64.net/downloads.php" alt="Release: 1.1"><img src="https://img.shields.io/badge/release-1.1-%235c913b.svg"></a>
